@@ -1,0 +1,10 @@
+{
+    "Species name": "ESPECIE",
+    "Transcription factor name": "NAME",
+    "Reference PubMed ID": "GSE000",
+    "CSV file with peak center positions": "excel.csv",
+    "Surrounding peak area to grab (i.e. fragment size)": 100,
+    "Mode of operation": ["filtering","no-filtering"],
+    "Genome accession list": "GSE000",
+    "Output folder": "output/",
+}
