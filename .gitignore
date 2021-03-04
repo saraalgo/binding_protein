@@ -1,1 +1,7 @@
 path.txt
+pyvenv.cfg
+requirements.txt
+bin/
+include/
+lib/
+lib64
