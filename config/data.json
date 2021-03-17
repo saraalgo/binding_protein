@@ -1,10 +1,15 @@
 {
-    "Species name": "ESPECIE",
-    "Transcription factor name": "NAME",
-    "Reference PubMed ID": "GSE000",
-    "CSV file with peak center positions": "excel.csv",
-    "Surrounding peak area to grab (i.e. fragment size)": 100,
-    "Mode of operation": ["filtering","no-filtering"],
-    "Genome accession list": "GSE000",
-    "Output folder": "output/",
+    "Species name": "Escherichia Coli",
+    "Transcription factor name": "FNR",
+    "Genome length": 4639675,
+    "Reference Genebank ID": 48994873,
+    "CSV file with peak center positions": "../../data/peaks.bed",
+    "Surrounding peak area to grab (i.e. fragment size)": "mean",
+    "Mode of operation": "filtering", 
+    "Genome accession list": "U00096.2",
+    "Output folder": "../../data/",
+    "Output file name": "data.csv",
+    "Email": "saraalvarezglez@gmail.com",
+    "Comment 1": "In mode of operation section, it is necessary to specify: filtering or non-filtering!!",
+    "Comment 2": "In Surrounding peak area to grab section, change mean output if we want to fix an exact number, but leave mean string"
 }
