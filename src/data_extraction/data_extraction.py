@@ -9,7 +9,7 @@ import warnings
 # Omit warning messages from the following code
 warnings.filterwarnings("ignore")
 
-
+# Constant with the .json file path
 CONFIG = '../../config/data.json'
 
 # Load .json file
@@ -82,6 +82,10 @@ def select_genic_parts(genome):
 
 ## Unify genic parts from genic parts contained in other genic parts 
 def unify_genic_parts(genic_parts):
+    """
+    :params: genic_parts - genic positions
+    :return: new_genic_parts - genic positions unificated
+    """
     new_genic_parts = [genic_parts[0]]
     for gen in genic_parts[1:]:
         if gen[0] < new_genic_parts[-1][1]:
@@ -107,9 +111,9 @@ def delete_genic_parts(genic_parts, positions):
     for start_gen, end_gen in genic_parts:
         for cnt_pos, pos in enumerate(positions_aux):
             if start_gen >= pos[0] and start_gen <= pos[1] and end_gen >= pos[1]:
-                positions_aux[cnt_pos][1] = start_gen  
+                positions_aux[cnt_pos][1] = start_gen - 1  
             if start_gen <= pos[0] and end_gen >= pos[0] and end_gen <= pos[1]:
-                positions_aux[cnt_pos][0] = end_gen
+                positions_aux[cnt_pos][0] = end_gen + 1
                 break          
     # Update and insert by splitting a genome part removing genic parts
     for start_gen, end_gen in genic_parts:
@@ -164,7 +168,18 @@ def extract_pos_neg(genome, positions, fragment_size):
         feature = SeqFeature(FeatureLocation(start,end), type="gene", strand=-1)
         feature_seq = genome.seq[feature.location.start:feature.location.end]
         negatives.append([''.join(list(feature_seq)), peak])
-
+    #From positions where no-peaks are, extract as much seq as we can according our fragment_size
+    fragment_size = round(fragment_size)
+    for cnt_pos, seq in enumerate(negatives):
+        cnt=0
+        len_seq=len(seq[0]) 
+        sequence = seq[0]
+        if (len_seq-cnt) >= fragment_size:
+            negatives[cnt_pos][0] = seq[0][0:fragment_size]
+            cnt += fragment_size
+            while (len_seq-cnt) >= fragment_size:
+                negatives.insert(cnt_pos+1,[sequence[cnt:cnt*2],seq[1]])
+                cnt+=cnt
     return positives,negatives
 
 #Save positive and negative data (peak/no-peak)
@@ -185,9 +200,9 @@ def data_extraction():
     # Read json
     config = open_json(CONFIG) 
     # Feedback of your .json config file
-    print('You are working with the Specie: ', config["Species name"])
-    print('The transcription factor you are analizing is: ', config["Transcription factor name"])
-    print('The genome length of this organism is: ', config["Genome length"])
+    print('You are working with the Specie:', config["Species name"])
+    print('The transcription factor you are analizing is:', config["Transcription factor name"])
+    print('The genome length of this organism is:', config["Genome length"])
     # Read peaks and extract genome positions of the peaks
     peaks, positions = read_peaks(config["CSV file with peak center positions"])
     print('This is the first row in the peaks csv file:\n',peaks[0])
@@ -208,14 +223,14 @@ def data_extraction():
         print("Filtering mode has not been used")
     # Calculate fragment size to grab no-peak fragments 
     fragment_size = length_peaks(positions,config["Surrounding peak area to grab (i.e. fragment size)"])
-    print("The fragment selected to grab negative data has a size of: ", fragment_size)
+    print("The fragment selected to grab negative data has a size of:", fragment_size)
     # Extract positives and negatives sequences
     positives,negatives = extract_pos_neg(genome, positions,fragment_size)
     # Save final data to work with
     save_csv(positives,negatives,config)
-    print("Your output file has been saved in the following path: ", config["Output folder"])
-    print("You will find it with the name of: ", config["Output file name"])
-    print("All functions has been correctly executed!")
+    print("Your output file has been saved in the following path:", config["Output folder"])
+    print("You will find it with the name of:", config["Output file name"])
+    print("All functions has been correctly executed! :)")
 
 
 if __name__ == '__main__':
