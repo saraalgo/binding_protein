@@ -10,6 +10,18 @@
     "Output folder": "../../data/",
     "Output file name": "data.csv",
     "Email": "saraalvarezglez@gmail.com",
+    "Number of replicates of each peak": 10,
     "Comment 1": "In mode of operation section, it is necessary to specify: filtering or non-filtering!!",
-    "Comment 2": "In Surrounding peak area to grab section, change mean output if we want to fix an exact number, but leave mean string"
+    "Comment 2": "In Surrounding peak area to grab section, change mean output if we want to fix an exact number, but leave mean string",
+    "Nucleotids in a row": 8,
+    "Files with features": {"positives": "../../data/trial1/peaks_negatives.fa.",
+                            "negatives":"../../data/trial1/peaks_positives.fa.",
+                            "unified":"../../data/trial1/peaks_unified.fa."
+                            },
+    "Algorithm to extract features": {"EP": "EP",
+                                      "HelT": "HelT",
+                                      "MGW": "MGW",
+                                      "ProT": "ProT",
+                                      "Roll": "Roll"
+                                    }
 }
