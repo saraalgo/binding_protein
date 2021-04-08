@@ -43,12 +43,13 @@ def add_no_peaks(positions,genome_length):
     :params: genome_length - length of your genome
     :return: positions - positions variable uploaded with no peaks information added
     """
+    positions_old = positions
     positions = [[int(start),int(end)] for start,end in positions.tolist()] #transform all values to int 
     for i in range(len(positions)): #insert 'peak' label to peaks positions
         positions[i].append('peak')
     add = [0,positions[0][0]-1,'no-peak']
     positions.insert(0,add)
-    for i in range(2,len(positions),2): #insert 'no peak' positions with their label in the gaps between peaks
+    for i in range(2,(len(positions_old)*2)-1,2): #insert 'no peak' positions with their label in the gaps between peaks
         add = [positions[i-1][1]+1,positions[i][0]-1,'no-peak']
         positions.insert(i,add)
     add= [positions[-1][1],genome_length,'no-peak']
@@ -196,7 +197,7 @@ def save_csv(positives,negatives,config):
         csv_writer.writerows(negatives)
         
 
-def data_extraction():
+def data_extraction_general():
     # Read json
     config = open_json(CONFIG) 
     # Feedback of your .json config file

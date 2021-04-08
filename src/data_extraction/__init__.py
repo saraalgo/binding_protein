@@ -1,1 +1,2 @@
-from src.data_extraction.data_extraction import data_extraction
+#from src.data_extraction.data_extraction_general import data_extraction_general
+from src.data_extraction.data_extraction_peak_replica import data_extraction_peak_replica
