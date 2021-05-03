@@ -1,0 +1,21 @@
+{
+    "Species name": "Brevundimonas subvibrioides ATCC 15264",
+    "Transcription factor name": "GcrA",
+    "Genome length": 3445263,
+    "Reference Genebank ID": 302191744,
+    "CSV file with peak center positions": "../../data/trial2/Brevundimonas-GcrA_peaks.bed",
+    "Surrounding peak area to grab (i.e. fragment size)": "mean",
+    "Mode of operation": "filtering", 
+    "Genome accession list": "NC_014375.1",
+    "Output folder": "../../data/trial2/",
+    "Output file name": "data.csv",
+    "Email": "saraalvarezglez@gmail.com",
+    "Number of replicates of each peak": 10,
+    "Comment 1": "In mode of operation section, it is necessary to specify: filtering or non-filtering!!",
+    "Comment 2": "In Surrounding peak area to grab section, change mean output if we want to fix an exact number, but leave mean string",
+    "Nucleotids in a row": [1,2,4],
+    "Files with hist features": ["../../data/trial1/hist_features_"],
+    "Algorithm to extract features": ["HelT", "MGW", "ProT", "Roll"],
+    "Files with descriptor features": ["../../data/trial1/dataSequence_"],
+    "Number of descriptors selected": [1,2,4]
+}
