@@ -5,8 +5,5 @@ bin/
 include/
 lib/
 lib64
-<<<<<<< HEAD
 data/
-=======
-data/
->>>>>>> 72ebaf79f5213169f270ae9e8d200b19781d4209
+
