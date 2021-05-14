@@ -5,7 +5,7 @@
     "Reference Genebank ID": 302191744,
     "CSV file with peak center positions": "../../data/trial2/Brevundimonas-GcrA_peaks.bed",
     "Surrounding peak area to grab (i.e. fragment size)": "mean",
-    "Mode of operation": "filtering", 
+    "Mode of operation": "NOfiltering", 
     "Genome accession list": "NC_014375.1",
     "Output folder": "../../data/trial2/",
     "Output file name": "data.csv",
@@ -16,6 +16,7 @@
     "Nucleotids in a row": [1,2,4],
     "Files with hist features": ["../../data/trial1/hist_features_"],
     "Algorithm to extract features": ["HelT", "MGW", "ProT", "Roll"],
-    "Files with descriptor features": ["../../data/trial1/dataSequence_"],
-    "Number of descriptors selected": [1,2,4]
+    "Files with descriptor features": ["../../data/trial2/dataSequence_"],
+    "Number of descriptors selected": [1,2,4],
+    "Files DnaShapeR": ["../../data/trial2/data.fa."]
 }

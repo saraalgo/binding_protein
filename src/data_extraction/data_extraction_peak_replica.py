@@ -1,16 +1,23 @@
 import json
+import os
 import numpy as np
 import pandas as pd
+import warnings
 import math
 from Bio import Entrez, SeqIO
 from Bio.SeqFeature import SeqFeature, FeatureLocation
 import csv
-import warnings
 import random
 from pandas import DataFrame
 
 # Omit warning messages from the following code
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.filterwarnings("ignore")
+
+#0 = all messages are logged (default behavior)
+#1 = INFO messages are not printed
+#2 = INFO and WARNING messages are not printed
+#3 = INFO, WARNING, and ERROR messages are not printed 
 
 # Constant with the .json file path
 CONFIG = '../../config/Brevundimonas-GcrA.json'
@@ -119,22 +126,19 @@ def no_genic_treatment(positions, start, end, strand, label):
     :params: label - indication to be an intergenic part
     :return: positions - function to use to identify intergenic/upstream/downstream parts in the genome
     """
-    if end-start > 250 and strand == 1:
+    if abs(end-start) > 250 and strand == 1:
         positions.append([start,start+100, 1, ["downstream"]])
         positions.append([start+101, end-149, 1, [label]])
         positions.append([end-150, end, 1, ["upstream"]])
-    elif end-start > 250:
-        positions.append([start,start+150, -1, ["upstream"]])
-        positions.append([start+151, end-99, -1, [label]])
-        positions.append([end-100, end, -1, ["downstream"]])
-    elif end-start == 250 and strand == 1:
+    elif abs(end-start) == 250 and strand == 1:
         positions.append([start,start+100, 1, ["downstream"]])
         positions.append([end-150, end, 1, ["upstream"]])
-    elif end-start == 250:
-        positions.append([start,start+150, -1, ["upstream"]])
-        positions.append([end-100, end, -1, ["downstream"]])
-    else:
-        positions.append([start,end, strand, ["upstream","downstream"]])
+    elif abs(end-start) < 250 and strand == 1:
+        positions.append([start,(start+int(np.floor(abs((end-start)/2)))), 1, ["downstream"]])
+        if int(abs(end-start)%2) == 0:
+            positions.append([((start+int(np.floor(abs((end-start)/2))))+1),end, 1, ["upstream"]])
+        else:
+            positions.append([(start+int(np.ceil(abs((end-start)/2)))),end, 1, ["upstream"]])
     return positions
 
 ### Loop to create the final positions
@@ -153,12 +157,13 @@ def add_pre_post_positions(genic_nogenic_parts):
         else:
             no_genic_treatment(positions, start, end, strand, label)
     if len(genic_nogenic_parts[-1])<100:
-        positions.append([genic_nogenic_parts[-1][0],genic_nogenic_parts[-1][1], 1, ["downstream"]])
+        positions.append([genic_nogenic_parts[-1][0],genic_nogenic_parts[-1][1], strand, ["downstream"]])
     else:
-        positions.append([genic_nogenic_parts[-1][0],genic_nogenic_parts[-1][0]+100, 1, ["downstream"]])
-        positions.append([genic_nogenic_parts[-1][0]+101,genic_nogenic_parts[-1][1], 1, [genic_nogenic_parts[0][3]]])
+        positions.append([genic_nogenic_parts[-1][0],genic_nogenic_parts[-1][0]+100, strand, ["downstream"]])
+        positions.append([genic_nogenic_parts[-1][0]+101,genic_nogenic_parts[-1][1], strand, [genic_nogenic_parts[0][3]]])
     return positions
-                                                    
+
+
 ## Create variables of the sequences from each regions positions
 def create_region_sequences(positions,genome):
     """
@@ -174,6 +179,8 @@ def create_region_sequences(positions,genome):
     }
     for start, end, strand, label in positions:
         for l in label:
+            if l != "genic" and start>end:
+                break
             seqfeature = SeqFeature(FeatureLocation(start,end), strand=strand)
             seq = genome.seq[seqfeature.location.start:seqfeature.location.end]
             if seqfeature.strand == -1:
@@ -184,7 +191,6 @@ def create_region_sequences(positions,genome):
     region_seq["upstream"] = "".join([str(seq_rec) for seq_rec in region_seq["upstream"]])
     region_seq["downstream"] = "".join([str(seq_rec) for seq_rec in region_seq["downstream"]])
     return region_seq
-
 
 # Peak treatment
 ## Filter (if necessary) peaks to unify length according to the minimun peak length
@@ -256,9 +262,14 @@ def pick_seq(peak_classification_aux, regions_seq):
     """
     sublist = []
     for peak in peak_classification_aux:
+        replicate_sequence = [] 
         for par in peak:
             inicio_rdn = random.randint(0,len(regions_seq[par[0]])-par[1])
-            sublist.append(regions_seq[par[0]][inicio_rdn:inicio_rdn+par[1]])
+            if replicate_sequence == []:
+                replicate_sequence = regions_seq[par[0]][inicio_rdn:inicio_rdn+par[1]]
+            else:
+                replicate_sequence = replicate_sequence + (regions_seq[par[0]][inicio_rdn:inicio_rdn+par[1]])
+        sublist.append(replicate_sequence)
     return sublist
 
 
@@ -280,7 +291,7 @@ def peak_replication(peak_classification, regions_seq,n_replicates):
     return replicates
 
 ## Filter (if necessary) replicates to unify length according to the minimun peak length
-def filter_replicate_length(replicates, operation_mode):
+def filter_replicate_length(peak_positions, operation_mode):
     if operation_mode == "filtering":
         temp = [abs(int(end) - int(start)) for start, end in peak_positions]
         res = min(temp) # min peak length

@@ -5,7 +5,8 @@ source('D:/Users/Sara/Documents/2019-21 Máster Bioinformática/2021 Febrero/TFM/P
 # Generate Descriptors
 dirData = "D:/Users/Sara/Documents/2019-21 Máster Bioinformática/2021 Febrero/TFM/Programacion/Git/data/trial2"
 setwd(dirData)
-annot = readRDS('data_annot_same_length.rds')
+#saveRDS(data, file = 'data_annot_same_length.rds')
+saveRDS(data, file = 'data_annot.rds')
 shapes = getShape('data.fa')[1:4]
 
 # DNAShape R

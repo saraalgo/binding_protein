@@ -95,7 +95,7 @@ plt.scatter(accuracy_XGboost,names_features)
 plt.title('XGBoost accuracy')
 plt.ylabel('Number of features')
 plt.xlabel('Accuracy')
-plt.savefig('../../datatrial2/results/XGboost.png')
+plt.savefig('../../data/trial2/results/XGboost.png')
 plt.show()
 plt.close()
 
