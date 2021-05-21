@@ -13,10 +13,10 @@
     "Number of replicates of each peak": 10,
     "Comment 1": "In mode of operation section, it is necessary to specify: filtering or non-filtering!!",
     "Comment 2": "In Surrounding peak area to grab section, change mean output if we want to fix an exact number, but leave mean string",
-    "Nucleotids in a row": [1,2,4],
-    "Files with hist features": ["../../data/trial1/hist_features_"],
     "Algorithm to extract features": ["HelT", "MGW", "ProT", "Roll"],
-    "Files with descriptor features": ["../../data/trial2/dataSequence_"],
-    "Number of descriptors selected": [1,2,4],
-    "Files DnaShapeR": ["../../data/trial2/data.fa."]
+    "Files DnaShapeR": "../../data/trial2/data.fa.",
+    "Data in fasta": "../../data/trial2/data.fa",
+    "Prefix of kmers selected": ["Monomers","Dimers","Tetramers"],
+    "Number of kmers selected": [1,2,4],
+    "Path to csv output k-mers": "../../data/trial2/descriptors/"
 }

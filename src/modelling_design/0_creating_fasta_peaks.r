@@ -10,30 +10,22 @@ setwd(dirData)
 inputPath = '../../data/trial2/data.csv'
 data = read.delim2(inputPath, header = T, sep = ',')
 
-## Filter replicates to ensure they are of the same lenght as peaks
-# peaks = data[which(data$Label == 'Peak'), ]
-# d = data[which(data$Label == 'Replicate'),]
-# l = list()
-# for (i in seq_along(d$Sequence)) {
-#   l[[i]] = nchar(d$Sequence[i])
-# }
-# l = unlist(l)
-# hist(l, 200)
-# 
-# pos = grep(290, l)
-# d = d[pos, ]
-# 
-# data = rbind.data.frame(peaks, d)
-
 # Save Data
 # =====================================
-## Save rds data
-#saveRDS(data, file = 'data_annot_same_length.rds')
-saveRDS(data, file = 'data_annot.rds')
+## Numerate peaks and replicates
+reads = as.list(data$Sequence); names(reads) = data$Label
+n = names(reads)
+n1 = paste0(n[which(n == 'Peak')], c(1:length(which(n == 'Peak'))))
+r = c(1:length(which(n == 'Peak')))
+r = sort(rep(r, 10))
+r = paste(r, c(1:10), sep = '.') #Because we have 10 replicates, change in function of what we want
+rr = paste0(n[which(n == 'Replicate')], r)
+names(reads) = c(n1, rr)
 
 ## Save fasta data
-reads = as.list(data$Sequence); names(reads) = data$Label
 write.fasta(reads, names = names(reads), file.out = 'data.fa')
 
+## Save rds data
+saveRDS(data, file = 'data_annot.rds')
 
 

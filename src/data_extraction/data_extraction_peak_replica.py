@@ -5,6 +5,7 @@ import pandas as pd
 import warnings
 import math
 from Bio import Entrez, SeqIO
+from Bio.Seq import Seq
 from Bio.SeqFeature import SeqFeature, FeatureLocation
 import csv
 import random
@@ -67,9 +68,15 @@ def select_genic_parts(genome):
     """
     Function to select only genic regions from full genome from gene info
     :params: genome - full genome of the organism
-    :return: genic_parts - genic positions
+    :return: genic_parts, preverse - genic positions, probability of a gene to be in the strand -1
     """
-    return [[feature.location.start.position,feature.location.end.position,feature.location.strand, "genic"] for feature in genome.features if feature.type == "gene"] 
+    genic_parts = [[feature.location.start.position,feature.location.end.position,feature.location.strand, "genic"] for feature in genome.features if feature.type == "gene"]
+    cnt = 0
+    for gen in genic_parts:
+        if gen[2]==-1:
+            cnt+=1
+    preverse = cnt/len(genic_parts)
+    return genic_parts, preverse
 
 ## Unify genic parts from genic parts contained in other genic parts 
 def unify_genic_parts(genic_parts):
@@ -253,11 +260,12 @@ def classify_peak(peak_positions,positions):
     return peak_classification
 
 ### Function to extract the nucleotids we need from the sequences
-def pick_seq(peak_classification_aux, regions_seq):
+def pick_seq(peak_classification_aux, regions_seq,preverse):
     """
     Subfunction to indicate how to extract the sequences from the bp and the region of the peaks
     :params: peak_classification_aux - info of each peak with the regions where they are found and how many bp they have in each one
     :params: regions_seq - dict with the whole sequence from correponding parts (genic, intergenic, upstream, downstream)
+    :params: preverse - probability of a gene to be in the strand -1
     :return: sublist - list of replicates of a list of sequences
     """
     sublist = []
@@ -267,19 +275,25 @@ def pick_seq(peak_classification_aux, regions_seq):
             inicio_rdn = random.randint(0,len(regions_seq[par[0]])-par[1])
             if replicate_sequence == []:
                 replicate_sequence = regions_seq[par[0]][inicio_rdn:inicio_rdn+par[1]]
+            # Set that in the case of upstream/downstream, because we don't have strand info, the % of probability of the gene to be strand -1 and 50% of possibility 
+            # of belong to each strand that part of the genome, will be flipped to decide if we let the sequence in the positive strand or we apply the reverse/complement
             else:
-                replicate_sequence = replicate_sequence + (regions_seq[par[0]][inicio_rdn:inicio_rdn+par[1]])
+                prob = np.random.binomial(1, (0.5*preverse)) #50% of posibility to be on each strand * preverse% of genes = strand -1 
+                if regions_seq[par[0]]=="downstream" or regions_seq[par[0]]=="upstream" and prob==1:
+                    replicate_sequence = replicate_sequence + str(Seq(regions_seq[par[0]][inicio_rdn:inicio_rdn+par[1]]).reverse_complement())
+                else:
+                    replicate_sequence = replicate_sequence + (regions_seq[par[0]][inicio_rdn:inicio_rdn+par[1]])
         sublist.append(replicate_sequence)
     return sublist
 
-
 ## Replicate peaks (negatives)
-def peak_replication(peak_classification, regions_seq,n_replicates):
+def peak_replication(peak_classification, regions_seq,n_replicates,preverse):
     """
     Function to replicate peaks
     :params: peak_classification - info of each peak with the regions where they are found and how many bp they have in each one
     :params: regions_seq - dict with the whole sequence from correponding parts (genic, intergenic, upstream, downstream)
     :params: n_replicates - number of replicates we want to generate
+    :params: preverse - probability of a gene to be in the strand -1
     :return: replicates - list of replicates of a list of sequences done n_replicates times (negative data)
     """
     replicates = []
@@ -287,7 +301,7 @@ def peak_replication(peak_classification, regions_seq,n_replicates):
     for idx, (_, _, _, label, bp) in enumerate(peak_classification):
         peak_classification_aux.append([(label,peak_classification[idx][4][label].pop(0)) for label in peak_classification[idx][3]]) # We are selecting label with 3 and bp with 4 
     for i in range(n_replicates):
-        replicates += pick_seq(peak_classification_aux, regions_seq)
+        replicates += pick_seq(peak_classification_aux, regions_seq,preverse)
     return replicates
 
 ## Filter (if necessary) replicates to unify length according to the minimun peak length
@@ -354,7 +368,7 @@ def data_extraction_peak_replica():
     # Download full genome
     genome = download_genome(config["Reference Genebank ID"],config["Email"])
     # Extract genic positions of the genome
-    genic_parts = select_genic_parts(genome)
+    genic_parts, preverse = select_genic_parts(genome)
     # Unify genic positions of the genome, purging those overlapped in the same strand
     new_genic_parts = unify_genic_parts(genic_parts)
     # Add no-genic positions to previous variable
@@ -369,7 +383,7 @@ def data_extraction_peak_replica():
     # Peak positions to replicate
     peak_classification = classify_peak(peak_positions,positions)
     # Replicates n times
-    replicates = peak_replication(peak_classification,regions_seq,config["Number of replicates of each peak"])
+    replicates = peak_replication(peak_classification,regions_seq,config["Number of replicates of each peak"],preverse)
     # Positive nucleotids, positives
     positives = peak_seq(peak_positions, genome)
     # Save final data to work with
