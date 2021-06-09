@@ -1,10 +1,13 @@
 import json
 import pandas as pd
 import numpy as np
-from itertools import combinations, permutations
+import itertools
 import warnings
 from Bio import SeqIO
+from Bio.Seq import Seq
 from sklearn.decomposition import PCA
+from sklearn.feature_selection import SelectKBest, f_classif
+
 
 # Omit warning messages from the following code
 warnings.filterwarnings("ignore")
@@ -12,7 +15,7 @@ warnings.filterwarnings("ignore")
 # Constant with the .json file path
 CONFIG = '../../config/Brevundimonas-GCRA.json'
 
-# EXTRACT DESCRIPTORS
+# READ CONFIG DATA
 # ================================
 ## Load .json file
 def open_json(config_name):
@@ -24,6 +27,8 @@ def open_json(config_name):
     with open(config_name) as f:
         return json.load(f)
 
+# EXTRACT DNASHAPER DESCRIPTORS
+# ================================
 ## Read getShapeR files
 def read_DnaShapeR(algorithms,fasta_name):
     """
@@ -111,133 +116,222 @@ def extract_hist_descriptors(shapes, global_min, global_max):
         hist_descriptors[alg] = pd.DataFrame(hist_descriptors[alg], columns=["Hist_descriptor", "Label"])
     return hist_descriptors
 
+# EXTRACT DNASHAPER DESCRIPTORS
+# ================================
+def charCombination(kmers):
+    """
+    Subfunciton to extract descriptors from desity in the histograms of each DnaShape function
+    :params: kmers - number of nucleotids repeated we want to extract
+    :return: all posible combinations for ACTG kmers
+    """
+    return ["".join(item) for item in itertools.product("ATCG", repeat=kmers)]
 
-### UNDER CONSTRUCTION, FOR THE MOMENT, USE R FUNCTION
-
-# def extract_k_mers(data, namesmers, kmers):
-#     """
-#     Function to extract descriptors from desity in the histograms of each DnaShape function
-#     :params: data - fasta with all Sequences and Labels
-#     :params: kmers - number of nucleotids repeated we want to extract
-#     :return: kmers_descriptors - pandas dict with the kmers descriptors for each sequence in each algorithm
-#     """
-#     data = []
-#     # Create dict with keys for kmer descriptors
-#     kmers_descriptors = {}
-#     for names in namesmers:
-#         kmers_descriptors[names] = None
-#     # Read data.fa
-#     with open(config["Data in fasta"], mode='r') as handle:
-#         # Use Biopython's parse function to process individual
-#         # FASTA records (thus reducing memory footprint)
-#         for record in SeqIO.parse(handle, 'fasta'):
-#             # Extract individual parts of the FASTA record
-#             identifier = record.id
-#             sequence = record.seq
-#             data.append([str(sequence),identifier])
-#     data = pd.DataFrame(data, columns=["Sequence", "Label"])
-#     # Extract kmers combinations counts
-
-# for idx, k in enumerate(config["Number of kmers selected"]):
-#     # Set combinations for each k
-#     comb = list(combinations("ACTG",k))
-#     if k > 1:
-#         comb = list(permutations(comb))
-#     print(comb[0][0])
-
-#     for seq in data["Sequence"]:
-
-
-#         kmers_descriptors[namesmers[idx]].append()
-                
-#     for k in kmers:
-#         kmers_descriptors[k] = pd.DataFrame(kmers_descriptors[alg], columns=[(str(k)+" mer_descriptor"), "Label"])
-#     return hist_descriptors
-
-
-# data =  extract_k_mers(config["Data in fasta"], config["Number of kmers selected"])
-# kmers_descriptors = extract_k_mers(config["Data in fasta"], config["Number of kmers selected"])
-
-## MEANWHILE LOAD CSV DATA OF K-MERS FROM R OUTPUT
-def load_csv_kmers(kmers, kmers_path):
-    kmers_descriptors = {}
-    for k in kmers:
-        kmers_descriptors[k] = pd.read_csv(kmers_path+str(k)+"_descriptors.csv")
-    return kmers_descriptors
+def extract_k_mers(datafa, kmers, complement):
+    """
+    Function to extract descriptors from desity in the histograms of each DnaShape function
+    :params: datafa - fasta with all Sequences and Labels
+    :params: kmers - number of nucleotids repeated we want to extract
+    :params: complement - here you indicate if you want to count reverso complement too of each kmer
+    :return: kmers_descriptors - pandas dict with the kmers descriptors for each sequence in each algorithm
+    """
+    data = []
+    # Extract kmers combinations counts as key of the dict
+    kmers_combinations = {}
+    keys_combinations = charCombination(kmers)
+    for i in keys_combinations:
+        kmers_combinations[i] = int()
+    # Read data.fa
+    with open(datafa, mode='r') as handle:
+        # Use Biopython's parse function to process individual
+        # FASTA records (thus reducing memory footprint)
+        for record in SeqIO.parse(handle, 'fasta'):
+            # Extract individual parts of the FASTA record
+            identifier = record.id
+            sequence = record.seq
+            data.append([str(sequence),identifier])
+    data = pd.DataFrame(data, columns=["Sequence", "Label"])
+    # Count how many strings of kmers each sequence has
+    kmer_descriptors = []
+    for seq in data["Sequence"]:
+        for i in keys_combinations:
+            kmers_combinations[i] = int()
+        for idx, _ in enumerate(seq):
+            if idx < len(seq)-kmers-1:
+                kmers_combinations[seq[idx:idx+kmers]] += 1
+                if complement == "Yes":
+                    kmers_combinations[Seq(seq[idx:idx+kmers]).reverse_complement()] += 1 # Is counting the reverse complement of each kmer too
+        kmer_descriptors.append([number / len(seq) for number in list(kmers_combinations.values())])
+    
+    kmer_descriptors=pd.DataFrame(kmer_descriptors,columns=keys_combinations)
+    kmer_descriptors.index = data["Label"]
+    kmer_descriptors = kmer_descriptors.loc[:, (kmer_descriptors != 0).any(axis=0)]
+    return kmer_descriptors
 
 
 # FEATURE SELECTION TECHNIQUES
 # ================================
 ## PCA
 def pca(ncomponents, descriptors):
-    descriptors_PCA = {}
+    """
+    Function to apply PCA FS technique
+    :params: ncomponents - number os components to calculate by PCA
+    :params: descriptors - descriptors we want to reduce features
+    :return: descriptors_PCA - PCA features selected
+    """
     pca = PCA(n_components=ncomponents)
-    for var in descriptors:
-        if len(descriptors[var].columns == 2): # for hist_descriptors
-            x = descriptors[var][descriptors[var].columns[0]]
-            x = pd.DataFrame(x.tolist(), index= x.index)
-            y = descriptors[var][descriptors[var].columns[1]]
-            principalComponents = pca.fit_transform(x)
-        elif len(descriptors[var].columns) > ncomponents: # for kmers_descriptors   PROBLEMA AQUI!!!!!!!!!!!!!!!!!!!!!
-            print(descriptors[var])
-            x = descriptors[var].drop("Label",axis=1)
-            print(x)
-            y = descriptors[var]["Label"]
-            print(y)
-            principalComponents = pca.fit_transform(x)
-        else: # for kmers_descriptors in case there are not enough
-            principalComponents = descriptors[var].drop("Label",axis=1)
-            y = descriptors[var]["Label"]
-        descriptors_PCA[var] = [principalComponents,y]
+    if type(descriptors) == dict:
+        descriptors_PCA = {}
+        for var in descriptors:
+            if len(descriptors[var].columns == 2): # for hist_descriptors
+                x = descriptors[var][descriptors[var].columns[0]]
+                x = pd.DataFrame(x.tolist(), index= x.index)
+                y = descriptors[var][descriptors[var].columns[1]]
+                pca.fit_transform(x)
+                columns = ['pca_%i' % i for i in range(ncomponents)]
+            descriptors_PCA[var] = pd.DataFrame(pca.transform(x), columns=columns, index=y)
+    else:
+        pca.fit_transform(descriptors)
+        columns = ['pca_%i' % i for i in range(ncomponents)]
+        descriptors_PCA = pd.DataFrame(pca.transform(descriptors), columns=columns, index=descriptors.index)
     return descriptors_PCA
 
-prueba = pca(15, kmers_descriptors)
+## Univariate method 
+def univariate_FS(kbest,descriptors):
+    if type(descriptors) == dict:
+        descriptors_kbest = {}
+        for var in descriptors:
+            if len(descriptors[var].columns == 2): # for hist_descriptors
+                x = descriptors[var][descriptors[var].columns[0]]
+                x = pd.DataFrame(x.tolist(), index= x.index)
+                y = descriptors[var][descriptors[var].columns[1]]
+                y = y.str.replace('\d+', '')
+                sel_anova = SelectKBest(f_classif, k=kbest).fit(x,y.ravel())
+                kbest_fs = x.columns[sel_anova.get_support()]
+                kbest_fs = x.iloc[:,kbest_fs]
+                kbest_fs.index = y
+            descriptors_kbest[var] = kbest_fs
+    else:
+        y = descriptors.index.str.replace('\d+', '')
+        sel_anova = SelectKBest(f_classif, k=kbest).fit(descriptors,y)
+        descriptors_kbest = descriptors.columns[sel_anova.get_support()]
+        descriptors_kbest = descriptors.loc[:,descriptors_kbest]
+    return descriptors_kbest
 
 
+# SAVE DESCRIPTORS
+# ================================
+#Save descriptors
+def save_csv(descriptor, filename, output_path):
+    """
+    :params: descriptor - descriptors we want to save
+    :params: config - to call the path you want to save them
+    :params: filename - name by which the file will be named
+    :return: None - But a .csv file will be created in your output folder
+    """
+    #Separate data if they are in a dict to save them
+    if len(descriptor.columns) == 2:
+        descriptor = descriptor.set_index("Label")
+        descriptor.iloc[:,0] = [list(row) for row in descriptor.iloc[:,0]]
+        data = pd.DataFrame(descriptor.iloc[:,0].tolist(), columns=range(len(descriptor.iloc[:,0][0])), index=descriptor.index)
+        #Save DataFrames as .csv
+        data.to_csv(output_path+filename+".csv")
+    else:
+        descriptor.to_csv(output_path+filename+".csv")
+
+     
+# MAIN
+# ================================
 def data_preprocessing():
     # Read json
     config = open_json(CONFIG) 
     # Read getShapeR files
+    print("Extracting DNAShapeR descriptors.....")
     shapes_raw = read_DnaShapeR(config["Algorithm to extract features"],config["Files DnaShapeR"])
+    shapes_raw_b = read_DnaShapeR(config["Algorithm to extract features"],config["Files DnaShapeR_bootstraping"])
     # Convert to int arrays Sequences from getShapeR
     shapes, global_min, global_max = extact_int_arrays(shapes_raw)
+    shapes_b, global_min_b, global_max_b = extact_int_arrays(shapes_raw_b)
     # Function to extract descriptors from desity in the histograms of each DnaShape function
     hist_descriptors = extract_hist_descriptors(shapes, global_min, global_max)
+    hist_descriptors_b = extract_hist_descriptors(shapes_b, global_min_b, global_max_b)
     # Function to extract descriptors from kmers
-    # kmers_descriptors = extract_k_mers(config["Data in fasta"], config["Prefix of kmers selected"], config["Number of kmers selected"])
-    # Load csv kmers descriptors from R
-    kmers_descriptors = load_csv_kmers(config["Number of kmers selected"], config["Path to csv output k-mers"])
+    print("Extracting kmers descriptors.....")
+    monomers = extract_k_mers(config["Data in fasta"], config["Number of kmers selected"][0], "Yes")
+    dimers = extract_k_mers(config["Data in fasta"], config["Number of kmers selected"][1], "Yes")
+    tetramers = extract_k_mers(config["Data in fasta"], config["Number of kmers selected"][2], "Yes")
+    monomers_nocomp = extract_k_mers(config["Data in fasta"], config["Number of kmers selected"][0], "No")
+    dimers_nocomp = extract_k_mers(config["Data in fasta"], config["Number of kmers selected"][1], "No")
+    tetramers_nocomp = extract_k_mers(config["Data in fasta"], config["Number of kmers selected"][2], "No")
+    monomers_b = extract_k_mers(config["Data in fasta_bootstraping"], config["Number of kmers selected"][0], "Yes")
+    dimers_b = extract_k_mers(config["Data in fasta_bootstraping"], config["Number of kmers selected"][1], "Yes")
+    tetramers_b = extract_k_mers(config["Data in fasta_bootstraping"], config["Number of kmers selected"][2], "Yes")
+    monomers_nocomp_b = extract_k_mers(config["Data in fasta_bootstraping"], config["Number of kmers selected"][0], "No")
+    dimers_nocomp_b = extract_k_mers(config["Data in fasta_bootstraping"], config["Number of kmers selected"][1], "No")
+    tetramers_nocomp_b = extract_k_mers(config["Data in fasta_bootstraping"], config["Number of kmers selected"][2], "No")
     # Apply FS techniques
-    ## PCA
-    hist_descriptors_PCA = 
-    kmers_descriptors = 
+    ## PCA 15
+    print("Applying FS techniques: PCA, kbest.....")
+    hist_descriptors_PCA = pca(15, hist_descriptors)
+    tetramers_descriptors_PCA = pca(15, tetramers)
+    tetramers_nocomp_descriptors_PCA = pca(15, tetramers_nocomp)
+    hist_descriptors_PCA_b = pca(15, hist_descriptors_b)
+    tetramers_descriptors_PCA_b = pca(15, tetramers_b)
+    tetramers_nocomp_descriptors_PCA_b = pca(15, tetramers_nocomp_b)
+    ## Univariate kbest 15
+    hist_descriptors_kbest = univariate_FS(15, hist_descriptors)
+    tetramers_descriptors_kbest = univariate_FS(15, tetramers)
+    tetramers_nocomp_descriptors_kbest = univariate_FS(15, tetramers_nocomp)
+    hist_descriptors_kbest_b = univariate_FS(15, hist_descriptors_b)
+    tetramers_descriptors_kbest_b = univariate_FS(15, tetramers_b)
+    tetramers_nocomp_descriptors_kbest_b = univariate_FS(15, tetramers_nocomp_b)
+    # Save results
+    print("Saving descriptors features.....")
+    save_csv(hist_descriptors["HelT"], "HelT_descriptors", config["Path to csv output descriptors"])
+    save_csv(hist_descriptors["MGW"], "MGW_descriptors", config["Path to csv output descriptors"])
+    save_csv(hist_descriptors["ProT"], "ProT_descriptors", config["Path to csv output descriptors"])
+    save_csv(hist_descriptors["Roll"], "Roll_descriptors", config["Path to csv output descriptors"])
+    save_csv(hist_descriptors_PCA["HelT"], "HelT_descriptors_PCA", config["Path to csv output descriptors"])
+    save_csv(hist_descriptors_PCA["MGW"], "MGW_descriptors_PCA", config["Path to csv output descriptors"])
+    save_csv(hist_descriptors_PCA["ProT"], "ProT_descriptors_PCA", config["Path to csv output descriptors"])
+    save_csv(hist_descriptors_PCA["Roll"], "Roll_descriptors_PCA", config["Path to csv output descriptors"])
+    save_csv(hist_descriptors_kbest["HelT"], "HelT_descriptors_kbest", config["Path to csv output descriptors"])
+    save_csv(hist_descriptors_kbest["MGW"], "MGW_descriptors_kbest", config["Path to csv output descriptors"])
+    save_csv(hist_descriptors_kbest["ProT"], "ProT_descriptors_kbest", config["Path to csv output descriptors"])
+    save_csv(hist_descriptors_kbest["Roll"], "Roll_descriptors_kbest", config["Path to csv output descriptors"])  
+    save_csv(monomers, "monomers_descriptors", config["Path to csv output descriptors"])
+    save_csv(dimers, "dimers_descriptors", config["Path to csv output descriptors"])
+    save_csv(tetramers, "tetramers_descriptors", config["Path to csv output descriptors"])
+    save_csv(monomers_nocomp, "monomers_nocomp_descriptors", config["Path to csv output descriptors"])
+    save_csv(dimers_nocomp, "dimers_nocomp_descriptors", config["Path to csv output descriptors"])
+    save_csv(tetramers_nocomp, "tetramers_nocomp_descriptors", config["Path to csv output descriptors"])
+    save_csv(tetramers_descriptors_PCA, "tetramers_descriptors_PCA", config["Path to csv output descriptors"])
+    save_csv(tetramers_nocomp_descriptors_PCA, "tetramers_nocomp_descriptors_PCA", config["Path to csv output descriptors"])
+    save_csv(tetramers_descriptors_kbest, "tetramers_descriptors_kbest", config["Path to csv output descriptors"])
+    save_csv(tetramers_nocomp_descriptors_kbest, "tetramers_nocomp_descriptors_kbest", config["Path to csv output descriptors"])
+    print("Saving descriptors features with bootstraping.....")
+    save_csv(hist_descriptors_b["HelT"], "HelT_descriptors", config["Path to csv output descriptors bootstrapping"])
+    save_csv(hist_descriptors_b["MGW"], "MGW_descriptors", config["Path to csv output descriptors bootstrapping"])
+    save_csv(hist_descriptors_b["ProT"], "ProT_descriptors", config["Path to csv output descriptors bootstrapping"])
+    save_csv(hist_descriptors_b["Roll"], "Roll_descriptors", config["Path to csv output descriptors bootstrapping"])
+    save_csv(hist_descriptors_PCA_b["HelT"], "HelT_descriptors_PCA", config["Path to csv output descriptors bootstrapping"])
+    save_csv(hist_descriptors_PCA_b["MGW"], "MGW_descriptors_PCA", config["Path to csv output descriptors bootstrapping"])
+    save_csv(hist_descriptors_PCA_b["ProT"], "ProT_descriptors_PCA", config["Path to csv output descriptors bootstrapping"])
+    save_csv(hist_descriptors_PCA_b["Roll"], "Roll_descriptors_PCA", config["Path to csv output descriptors bootstrapping"])
+    save_csv(hist_descriptors_kbest_b["HelT"], "HelT_descriptors_kbest", config["Path to csv output descriptors bootstrapping"])
+    save_csv(hist_descriptors_kbest_b["MGW"], "MGW_descriptors_kbest", config["Path to csv output descriptors bootstrapping"])
+    save_csv(hist_descriptors_kbest_b["ProT"], "ProT_descriptors_kbest", config["Path to csv output descriptors bootstrapping"])
+    save_csv(hist_descriptors_kbest_b["Roll"], "Roll_descriptors_kbest", config["Path to csv output descriptors bootstrapping"])  
+    save_csv(monomers_b, "monomers_descriptors", config["Path to csv output descriptors bootstrapping"])
+    save_csv(dimers_b, "dimers_descriptors", config["Path to csv output descriptors bootstrapping"])
+    save_csv(tetramers_b, "tetramers_descriptors", config["Path to csv output descriptors bootstrapping"])
+    save_csv(monomers_nocomp_b, "monomers_nocomp_descriptors", config["Path to csv output descriptors bootstrapping"])
+    save_csv(dimers_nocomp_b, "dimers_nocomp_descriptors", config["Path to csv output descriptors bootstrapping"])
+    save_csv(tetramers_nocomp_b, "tetramers_nocomp_descriptors", config["Path to csv output descriptors bootstrapping"])
+    save_csv(tetramers_descriptors_PCA_b, "tetramers_descriptors_PCA", config["Path to csv output descriptors bootstrapping"])
+    save_csv(tetramers_nocomp_descriptors_PCA_b, "tetramers_nocomp_descriptors_PCA", config["Path to csv output descriptors bootstrapping"])
+    save_csv(tetramers_descriptors_kbest_b, "tetramers_descriptors_kbest", config["Path to csv output descriptors bootstrapping"])
+    save_csv(tetramers_nocomp_descriptors_kbest_b, "tetramers_nocomp_descriptors_kbest", config["Path to csv output descriptors bootstrapping"])
 
 if __name__ == '__main__':
     data_preprocessing()
 
-
-# NECESSARY NOW TO USE model_test.py
-# Read json
-config = open_json(CONFIG) 
-# Read csv files
-#d_hist_features, d_descrip_featu = load_csv_files(config["Files with hist features"], config["Algorithm to extract features"], config["Files with descriptor features"], config["Number of descriptors selected"]) 
-# Read getShapeR files
-shapes_raw = read_DnaShapeR(config["Algorithm to extract features"],config["Files DnaShapeR"])
-# Convert to int arrays Sequences from getShapeR
-shapes, global_min, global_max = extact_int_arrays(shapes_raw)
-# Function to extract descriptors from desity in the histograms of each DnaShape function
-hist_descriptors = extract_hist_descriptors(shapes, global_min, global_max)
-# Function to extract descriptors from kmers
-# kmers_descriptors = extract_k_mers(config["Data in fasta"], config["Prefix of kmers selected"], config["Number of kmers selected"])
-# Load csv kmers descriptors from R
-kmers_descriptors = load_csv_kmers(config["Number of kmers selected"], config["Path to csv output k-mers"])
-# Apply FS techniques
-## PCA
-hist_descriptors_PCA = pca(15, hist_descriptors)
-kmers_descriptors_PCA = pca(15, kmers_descriptors)
-
-
-pca = PCA(n_components=15)
-
-x = hist_descriptors["HelT"]["Hist_descriptor"]
-x = pd.DataFrame(x.tolist(), index= x.index)

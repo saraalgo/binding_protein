@@ -4,11 +4,12 @@ import numpy as np
 import pandas as pd
 import warnings
 import math
+import random
 from Bio import Entrez, SeqIO
 from Bio.Seq import Seq
 from Bio.SeqFeature import SeqFeature, FeatureLocation
 import csv
-import random
+from random import randint
 from pandas import DataFrame
 
 # Omit warning messages from the following code
@@ -338,8 +339,26 @@ def peak_seq(peak_positions, genome):
         positives.append(seq)
     return positives
 
+## Replicate peaks (negatives) by BOOTSTRAPING
+def peak_replication_bootstrap(positives, kmer_bootstraping, n_replicates):
+    replicates = []
+    for peak in positives:
+        for n in range(n_replicates):
+            replicate = []
+            for l in range(0,int(np.floor(len(peak)/kmer_bootstraping))):
+                k = randint(0,len(peak)-kmer_bootstraping)
+                replicate=replicate+([peak[k:k+kmer_bootstraping]])
+            replicate = ''.join(map(str, replicate)) 
+            if len(peak) != len(replicate):
+                k = randint(0,len(peak)-kmer_bootstraping)
+                replicate+=(peak[k:k+(len(peak)-len(replicate))])
+                replicate = ''.join(map(str, replicate)) 
+            replicates.append(replicate)
+    return replicates
+
+
 #Save positive and negative data (peaks/replicates)
-def save_csv(positives,replicates,config):
+def save_csv(positives,replicates,folder,name):
     """
     :params: positives - list of sequences for peaks regions
     :params: negatives - list of sequences for no-peaks regions
@@ -352,7 +371,7 @@ def save_csv(positives,replicates,config):
     negatives['Label'] = 'Replicate'
     data = positives.append(negatives)
     #Save DataFrames as .csv
-    data.to_csv(config["Output folder"]+config["Output file name"])
+    data.to_csv(folder+name)
 
 
 def data_extraction_peak_replica():
@@ -386,8 +405,11 @@ def data_extraction_peak_replica():
     replicates = peak_replication(peak_classification,regions_seq,config["Number of replicates of each peak"],preverse)
     # Positive nucleotids, positives
     positives = peak_seq(peak_positions, genome)
+    # Replicates by bootstraping
+    bootstrap_replicates = peak_replication_bootstrap(positives, config["Kmer for bootstraping"], config["Number of replicates of each peak"])
     # Save final data to work with
-    save_csv(positives,replicates,config)
+    save_csv(positives,replicates,config["Output folder"], config["Output file name"])
+    save_csv(positives,bootstrap_replicates,config["Output folder"], config["Output file name with bootstraping"])
     print("Your output file has been saved in the following path:", config["Output folder"])
     print("You will find it with the name of:", config["Output file name"])
     print("All functions has been correctly executed! :)")
